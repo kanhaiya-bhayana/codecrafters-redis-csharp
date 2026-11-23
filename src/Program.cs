@@ -12,4 +12,3 @@ server.AcceptSocket(); // wait for client
 
 Socket client = server.AcceptSocket();
 client.Send(Encoding.UTF8.GetBytes("+PONG\r\n"));
-client.Close();
