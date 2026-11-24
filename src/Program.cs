@@ -65,6 +65,6 @@ static string ParseInput(string request)
         return $"${message.Length}\r\n{message}\r\n";
     }
 
-    return $"OK\r\n";
+    return $"+OK\r\n";
 
 }
