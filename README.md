@@ -31,3 +31,27 @@ Note: This section is for stages 2 and beyond.
    `src/Program.cs`.
 1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
    output will be streamed to your terminal.
+
+
+
+
+| Command | parts[2] | parts[4] | parts[6] | parts[8] | parts[10] |
+|----------|----------|----------|----------|----------|-----------|
+| PING | PING | - | - | - | - |
+| ECHO hey | ECHO | hey | - | - | - |
+| GET foo | GET | foo | - | - | - |
+| SET foo bar | SET | foo | bar | - | - |
+| SET foo bar PX 100 | SET | foo | bar | PX | 100 |
+| RPUSH mylist apple | RPUSH | mylist | apple | - | - |
+| RPUSH mylist a b c | RPUSH | mylist | a | b | c |
+
+
+
+
+| Index | Meaning |
+|---------|---------|
+| parts[2] | Command |
+| parts[4] | Argument 1 |
+| parts[6] | Argument 2 |
+| parts[8] | Argument 3 |
+| parts[10] | Argument 4 |
