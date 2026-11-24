@@ -59,12 +59,17 @@ static string ParseInput(string request)
     string[] parts = request.Split(
         ["\r\n"], StringSplitOptions.RemoveEmptyEntries);
     
-    if (parts.Length >= 5 && parts[2] == "ECHO")
+    string command = parts[2].ToUpper();
+    
+    switch (command)
     {
-        string message = parts[4];
-        return $"${message.Length}\r\n{message}\r\n";
+        case "PING":
+            return $"+PONG\r\n";
+        case "ECHO":
+            string message = parts[4];
+            return $"${message.Length}\r\n{message}\r\n";
+        
+        default:
+            return "$-1\r\n";
     }
-
-    return $"+OK\r\n";
-
 }
