@@ -7,9 +7,6 @@ Console.WriteLine("Logs from your program will appear here!");
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 
-
-
-
 while (true)
 {
     Socket client = server.AcceptSocket(); // connects the clients
@@ -35,12 +32,8 @@ static void HandleClient(Socket client)
                 Console.WriteLine("Connection closed");
                 break;
             }
-            Console.WriteLine($" Curr Thread: {Task.CurrentId}");
+            // Console.WriteLine($" Curr Thread: {Task.CurrentId}");
             string request = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            foreach (char c in request)
-            {
-                Console.WriteLine((int)c);
-            }
             string response = ParseInput(request);
             client.Send(Encoding.UTF8.GetBytes(response));
         }
@@ -72,6 +65,6 @@ static string ParseInput(string request)
         return $"${message.Length}\r\n{message}\r\n";
     }
 
-    return $"$-1\r\n";
+    return $"OK\r\n";
 
 }
