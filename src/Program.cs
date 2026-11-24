@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -7,7 +8,7 @@ Console.WriteLine("Logs from your program will appear here!");
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 
-IDictionary<string, string?> store = new Dictionary<string, string?>();
+ConcurrentDictionary<string, string?> store = new();
 while (true)
 {
     Socket client = server.AcceptSocket(); // connects the clients
@@ -66,23 +67,25 @@ string ParseInput(string request)
     {
         case "PING":
             return $"+PONG\r\n";
+        
         case "ECHO":
             string message = parts[4];
             return WrapResponse(message);
+        
         case "SET":
-            store.Add(parts[4], parts[6]);
+            store[parts[4]] = parts[6];
             return "+OK\r\n";
             
         case "GET":
-            if (store.TryGetValue(parts[4], out string res))
-                return WrapResponse(res);
-            return ReturnNull();
+            return store.TryGetValue(parts[4], out var res)
+                ? WrapResponse(res)
+                : ReturnNull();
         
         default:
             return ReturnNull();
     }
 }
 
-string WrapResponse(string input) => $"${input.Length}\r\n{input}\r\n"; 
+string WrapResponse(string? input) => $"${input?.Length}\r\n{input}\r\n"; 
 string ReturnOk() => "+OK\r\n";
 string ReturnNull() => "$-1\r\n";
