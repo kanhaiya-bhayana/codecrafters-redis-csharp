@@ -9,4 +9,18 @@ Console.WriteLine("Logs from your program will appear here!");
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 Socket client = server.AcceptSocket();
-client.Send(Encoding.UTF8.GetBytes("+PONG\r\n"));
+
+byte[] buffer = new byte[1024];
+while (true)
+{
+    int bytesRead = client.Receive(buffer);
+    if (bytesRead == 0)
+    {
+        Console.WriteLine("Connection closed");
+        break;
+    }
+    string request = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+    Console.WriteLine(request);
+    client.Send(Encoding.UTF8.GetBytes("+PONG\r\n"));
+}
+
