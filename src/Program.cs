@@ -7,6 +7,7 @@ Console.WriteLine("Logs from your program will appear here!");
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 
+IDictionary<string, string?> store = new Dictionary<string, string?>();
 while (true)
 {
     Socket client = server.AcceptSocket(); // connects the clients
@@ -19,7 +20,7 @@ while (true)
     
 }
 
-static void HandleClient(Socket client)
+void HandleClient(Socket client)
 {
     try
     {
@@ -47,14 +48,14 @@ static void HandleClient(Socket client)
  * 
  * Input will be RESP Array
  * *<number-of-elements>\r\n<element-1>...<element-n>
- * *2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n
+ * *3\r\n$3\r\nSETr\n$3\r\nfoo\r\$3\r\nbar\r\n
  * *2   0
    $4   1
    ECHO 2
    $3   3
    hey  4
  */
-static string ParseInput(string request)
+string ParseInput(string request)
 {
     string[] parts = request.Split(
         ["\r\n"], StringSplitOptions.RemoveEmptyEntries);
@@ -67,9 +68,21 @@ static string ParseInput(string request)
             return $"+PONG\r\n";
         case "ECHO":
             string message = parts[4];
-            return $"${message.Length}\r\n{message}\r\n";
+            return WrapResponse(message);
+        case "SET":
+            store.Add(parts[4], parts[6]);
+            return "+OK\r\n";
+            
+        case "GET":
+            if (store.TryGetValue(parts[4], out string res))
+                return WrapResponse(res);
+            return ReturnNull();
         
         default:
-            return "$-1\r\n";
+            return ReturnNull();
     }
 }
+
+string WrapResponse(string input) => $"${input.Length}\r\n{input}\r\n"; 
+string ReturnOk() => "+OK\r\n";
+string ReturnNull() => "$-1\r\n";
