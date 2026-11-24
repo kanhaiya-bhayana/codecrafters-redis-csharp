@@ -36,10 +36,42 @@ static void HandleClient(Socket client)
                 break;
             }
             Console.WriteLine($" Curr Thread: {Task.CurrentId}");
-            client.Send(Encoding.UTF8.GetBytes("+PONG\r\n"));
+            string request = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            foreach (char c in request)
+            {
+                Console.WriteLine((int)c);
+            }
+            string response = ParseInput(request);
+            client.Send(Encoding.UTF8.GetBytes(response));
         }
     }
     finally{
         client.Close();
     }
+}
+
+/* Bulk string fromat: $<length>\r\n<data>\r\n
+ * 
+ * Input will be RESP Array
+ * *<number-of-elements>\r\n<element-1>...<element-n>
+ * *2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n
+ * *2   0
+   $4   1
+   ECHO 2
+   $3   3
+   hey  4
+ */
+static string ParseInput(string request)
+{
+    string[] parts = request.Split(
+        ["\r\n"], StringSplitOptions.RemoveEmptyEntries);
+    
+    if (parts.Length >= 5 && parts[2] == "ECHO")
+    {
+        string message = parts[4];
+        return $"${message.Length}\r\n{message}\r\n";
+    }
+
+    return $"$-1\r\n";
+
 }
