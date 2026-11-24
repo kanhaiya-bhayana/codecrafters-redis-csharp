@@ -2,13 +2,14 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using codecrafters_redis.DTOs;
 
 Console.WriteLine("Logs from your program will appear here!");
 
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 
-ConcurrentDictionary<string, string?> store = new();
+ConcurrentDictionary<string, RedisValue> store = new();
 while (true)
 {
     Socket client = server.AcceptSocket(); // connects the clients
@@ -31,10 +32,10 @@ void HandleClient(Socket client)
             int bytesRead = client.Receive(buffer);
             if (bytesRead == 0)
             {
-                Console.WriteLine("Connection closed");
+                Console.WriteLine($"Connection closed for Thread: {Task.CurrentId}");
                 break;
             }
-            // Console.WriteLine($" Curr Thread: {Task.CurrentId}");
+            Console.WriteLine($" Curr Thread: {Task.CurrentId}");
             string request = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             string response = ParseInput(request);
             client.Send(Encoding.UTF8.GetBytes(response));
@@ -73,14 +74,36 @@ string ParseInput(string request)
             return WrapResponse(message);
         
         case "SET":
-            store[parts[4]] = parts[6];
-            return "+OK\r\n";
-            
-        case "GET":
-            return store.TryGetValue(parts[4], out var res)
-                ? WrapResponse(res)
-                : ReturnNull();
+            DateTimeOffset? expireAt = null;
+
+            if (parts.Length > 8)
+            {
+                long expiryValue = long.Parse(parts[10]);
+
+                expireAt = parts[8] switch
+                {
+                    "PX" => DateTimeOffset.UtcNow.AddMilliseconds(expiryValue),
+                    "EX" => DateTimeOffset.UtcNow.AddSeconds(expiryValue),
+                    _ => null
+                };
+            }
+
+            store[parts[4]] = new RedisValue(
+                Value: parts[6],
+                ExpiredAt: expireAt
+            );
+
+            return ReturnOk();
         
+        case "GET":
+            if (!store.TryGetValue(parts[4], out var entry))
+                return ReturnNull();
+
+            if (entry.ExpiredAt is null ||
+                !(DateTimeOffset.UtcNow >= entry.ExpiredAt)) return WrapResponse(entry.Value);
+            store.TryRemove(parts[4], out _);
+            return ReturnNull();
+
         default:
             return ReturnNull();
     }
