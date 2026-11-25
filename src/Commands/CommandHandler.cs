@@ -72,6 +72,31 @@ public class CommandHandler
                 _store.TryAdd(key, newList);
 
                 return RespWriter.Integer(newList.Values.Count);
+            
+            case "LRANGE":
+                string listKey = command.Arguments[0];
+                long startValue = long.Parse(command.Arguments[1]);
+                long endValue = long.Parse(command.Arguments[2]);
+
+                if (!_store.TryGetValue(listKey, out var value))
+                {
+                    return RespWriter.NullBulkString();
+                }
+
+                if (value is RedisList redisList)
+                {
+                    if (startValue >= redisList.Values.Count || startValue > endValue)
+                        return RespWriter.NullBulkString();
+                    
+                    if (endValue > redisList.Values.Count)
+                        endValue = redisList.Values.Count;
+
+                    foreach (var item in redisList.Values)
+                    {
+                        return RespWriter.SimpleString(item);
+                    }
+                }
+                return RespWriter.NullBulkString();
                 
             default:
                 return RespWriter.NullBulkString();
