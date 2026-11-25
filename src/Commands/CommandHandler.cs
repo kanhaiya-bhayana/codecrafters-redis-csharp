@@ -55,24 +55,23 @@ public class CommandHandler
             case "RPUSH":
                 
                 string key = command.Arguments[0];
-                string value = command.Arguments[1];
+                string[] values = command.Arguments.Skip(1).ToArray();
 
                 if (_store.TryGetValue(key, out var redisValue))
                 {
                     if (redisValue is RedisList list)
                     {
-                        list.Values.Add(value);
+                        list.Values.AddRange(values);
                         return RespWriter.Integer(
                             list.Values.Count);
                     }
                 }
 
-                var newList = new RedisList(
-                    [value]);
+                var newList = new RedisList([..values]);
                 
                 _store.TryAdd(key, newList);
 
-                return RespWriter.Integer(1);
+                return RespWriter.Integer(newList.Values.Count);
                 
             default:
                 return RespWriter.NullBulkString();
