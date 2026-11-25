@@ -80,12 +80,12 @@ public class CommandHandler
 
                 if (!_store.TryGetValue(listKey, out var value))
                 {
-                    return RespWriter.NullBulkString();
+                    return RespWriter.Array([]);
                 }
 
                 if (value is not RedisList redisList)
                 {
-                    return RespWriter.NullBulkString();
+                    return RespWriter.Array([]);
                 }
                 
                 int count = end - start + 1;
