@@ -88,6 +88,9 @@ public class CommandHandler
                     return RespWriter.Array([]);
                 }
                 
+                if (start < 0) start += redisList.Values.Count;
+                if (end < 0) end += redisList.Values.Count;
+                
                 int count = end - start + 1;
 
                 var result = redisList.Values
