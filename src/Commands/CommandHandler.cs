@@ -53,26 +53,23 @@ public class CommandHandler
                 return RespWriter.NullBulkString();
 
             case "RPUSH":
-                
-                string key = command.Arguments[0];
-                string[] values = command.Arguments.Skip(1).ToArray();
+            {
+                var (key, values) = GetKeyAndValues(command);
+                RedisList lst = GetOrCreateList(key);
+                lst.Values.AddRange(values);
+                return RespWriter.Integer(
+                    lst.Values.Count);
+            }
 
-                if (_store.TryGetValue(key, out var redisValue))
-                {
-                    if (redisValue is RedisList list)
-                    {
-                        list.Values.AddRange(values);
-                        return RespWriter.Integer(
-                            list.Values.Count);
-                    }
-                }
+            case "LPUSH":
+            {
+                var (key, values) = GetKeyAndValues(command);
+                RedisList list = GetOrCreateList(key);
+                foreach (var s in values)
+                    list.Values.Insert(0,s);
+                return RespWriter.Integer(list.Values.Count);
+            }
 
-                var newList = new RedisList([..values]);
-                
-                _store.TryAdd(key, newList);
-
-                return RespWriter.Integer(newList.Values.Count);
-            
             case "LRANGE":
                 string listKey = command.Arguments[0];
                 int start = int.Parse(command.Arguments[1]);
@@ -103,5 +100,28 @@ public class CommandHandler
             default:
                 return RespWriter.NullBulkString();
         }
+    }
+
+    private RedisList GetOrCreateList(string listKey)
+    {
+        if (_store.TryGetValue(listKey, out var redisValue))
+        {
+            if (redisValue is RedisList list)
+            {
+                return list;
+            }
+
+            throw new InvalidOperationException("WRONGTYPE");
+        }
+
+        var listValue = new RedisList([]);
+        _store.TryAdd(listKey, listValue);
+        return listValue;
+    }
+
+    private static (string Key, string[] Values)
+        GetKeyAndValues(RedisCommand command)
+    {
+        return (command.Arguments[0], command.Arguments.Skip(1).ToArray());
     }
 }
