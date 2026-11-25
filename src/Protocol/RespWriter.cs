@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace codecrafters_redis.Utils;
 
 public static class RespWriter
@@ -16,5 +18,20 @@ public static class RespWriter
 
     public static string Integer(int? value) =>
         $":{value}\r\n";
+
+    public static string Array(IEnumerable<string> values)
+    {
+        var items = values.ToList();
+        
+        StringBuilder sb = new();
+        sb.Append($"*{items.Count}\r\n");
+
+        foreach (var item in items)
+        {
+            sb.Append(BulkString(item));
+        }
+        
+        return sb.ToString();
+    }
 
 }

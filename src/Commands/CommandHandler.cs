@@ -75,28 +75,27 @@ public class CommandHandler
             
             case "LRANGE":
                 string listKey = command.Arguments[0];
-                long startValue = long.Parse(command.Arguments[1]);
-                long endValue = long.Parse(command.Arguments[2]);
+                int start = int.Parse(command.Arguments[1]);
+                int end = int.Parse(command.Arguments[2]);
 
                 if (!_store.TryGetValue(listKey, out var value))
                 {
                     return RespWriter.NullBulkString();
                 }
 
-                if (value is RedisList redisList)
+                if (value is not RedisList redisList)
                 {
-                    if (startValue >= redisList.Values.Count || startValue > endValue)
-                        return RespWriter.NullBulkString();
-                    
-                    if (endValue > redisList.Values.Count)
-                        endValue = redisList.Values.Count;
-
-                    foreach (var item in redisList.Values)
-                    {
-                        return RespWriter.SimpleString(item);
-                    }
+                    return RespWriter.NullBulkString();
                 }
-                return RespWriter.NullBulkString();
+                
+                int count = end - start + 1;
+
+                var result = redisList.Values
+                    .Skip(start)
+                    .Take(count)
+                    .ToList();
+                
+                return RespWriter.Array(result);
                 
             default:
                 return RespWriter.NullBulkString();
