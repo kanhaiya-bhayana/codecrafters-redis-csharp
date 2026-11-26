@@ -96,6 +96,20 @@ public class CommandHandler
                     .ToList();
                 
                 return RespWriter.Array(result);
+
+            case "LLEN":
+            {
+                if (!_store.TryGetValue(command.Arguments[0], out var redisValue))
+                {
+                    return RespWriter.Integer(0);
+                }
+
+                if (redisValue is RedisList list)
+                {
+                    return RespWriter.Integer(list.Values.Count);
+                }
+                return RespWriter.Integer(0);
+            }
                 
             default:
                 return RespWriter.NullBulkString();
