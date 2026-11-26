@@ -120,14 +120,14 @@ public class CommandHandler
                     return RespWriter.NullBulkString();
                 }
 
-                if (redisValue is RedisList list)
-                {
-                    var removed = list.Values.First();
-                    list.Values.RemoveAt(0);
-                    return RespWriter.BulkString(removed);
-                }
+                if (redisValue is not RedisList list) throw new InvalidOperationException("WRONGTYPE");
                 
-                throw new InvalidOperationException("WRONGTYPE");
+                var cnt = (values.Length > 0) ? int.Parse(values[0]) : 1;
+                if (cnt > list.Values.Count) cnt = list.Values.Count;
+                
+                var popped = list.Values.Take(cnt).ToList();
+                list.Values.RemoveRange(0, cnt);
+                return RespWriter.Array(popped);
             }
                 
             default:
