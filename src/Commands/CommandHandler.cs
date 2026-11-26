@@ -127,7 +127,7 @@ public class CommandHandler
                 
                 var popped = list.Values.Take(cnt).ToList();
                 list.Values.RemoveRange(0, cnt);
-                return RespWriter.Array(popped);
+                return (cnt == 1) ? RespWriter.BulkString(popped.ToString()) : RespWriter.Array(popped);
             }
                 
             default:
