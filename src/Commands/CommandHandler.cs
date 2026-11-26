@@ -71,6 +71,7 @@ public class CommandHandler
             }
 
             case "LRANGE":
+            {
                 string listKey = command.Arguments[0];
                 int start = int.Parse(command.Arguments[1]);
                 int end = int.Parse(command.Arguments[2]);
@@ -96,7 +97,7 @@ public class CommandHandler
                     .ToList();
                 
                 return RespWriter.Array(result);
-
+            }
             case "LLEN":
             {
                 if (!_store.TryGetValue(command.Arguments[0], out var redisValue))
@@ -122,12 +123,17 @@ public class CommandHandler
 
                 if (redisValue is not RedisList list) throw new InvalidOperationException("WRONGTYPE");
                 
-                var cnt = (values.Length > 0) ? int.Parse(values[0]) : 1;
-                if (cnt > list.Values.Count) cnt = list.Values.Count;
-                
-                var popped = list.Values.Take(cnt).ToList();
-                list.Values.RemoveRange(0, cnt);
-                return (cnt == 1) ? RespWriter.BulkString(popped[0]) : RespWriter.Array(popped);
+                var count = Math.Min(
+                    values.Length > 0 ? int.Parse(values[0]) : 1,
+                    list.Values.Count);
+
+                var popped = list.Values.GetRange(0, count);
+
+                list.Values.RemoveRange(0, count);
+
+                return count == 1
+                    ? RespWriter.BulkString(popped[0])
+                    : RespWriter.Array(popped);
             }
                 
             default:
