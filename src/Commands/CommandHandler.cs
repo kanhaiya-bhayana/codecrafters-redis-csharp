@@ -110,6 +110,25 @@ public class CommandHandler
                 }
                 return RespWriter.Integer(0);
             }
+
+            case "LPOP":
+            {
+                var (key, values) = GetKeyAndValues(command);
+
+                if (!_store.TryGetValue(key, out var redisValue))
+                {
+                    return RespWriter.NullBulkString();
+                }
+
+                if (redisValue is RedisList list)
+                {
+                    var removed = list.Values.First();
+                    list.Values.RemoveAt(0);
+                    return RespWriter.BulkString(removed);
+                }
+                
+                throw new InvalidOperationException("WRONGTYPE");
+            }
                 
             default:
                 return RespWriter.NullBulkString();
