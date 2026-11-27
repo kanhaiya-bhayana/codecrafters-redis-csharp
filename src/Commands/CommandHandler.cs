@@ -58,6 +58,16 @@ public class CommandHandler
             {
                 var (key, values) = GetKeyAndValues(command);
 
+                int initialLength = 0;
+
+                if (_store.TryGetValue(key, out var existingValue) &&
+                    existingValue is RedisList existingList)
+                {
+                    initialLength = existingList.Values.Count;
+                }
+
+                int finalLength = initialLength + values.Length;
+
                 if (_waitingQueue.TryGetValue(key, out var waiters))
                 {
                     int index = 0;
@@ -74,16 +84,13 @@ public class CommandHandler
                     values = values.Skip(index).ToArray();
                 }
 
-                if (values.Length == 0)
+                if (values.Length > 0)
                 {
-                    return RespWriter.Integer(0);
+                    RedisList list = GetOrCreateList(key);
+                    list.Values.AddRange(values);
                 }
 
-                RedisList list = GetOrCreateList(key);
-
-                list.Values.AddRange(values);
-
-                return RespWriter.Integer(list.Values.Count);
+                return RespWriter.Integer(finalLength);
             }
 
             case "LPUSH":
