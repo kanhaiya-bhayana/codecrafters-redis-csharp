@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.Sockets;
 using codecrafters_redis.DTOs;
 using codecrafters_redis.Utils;
 
@@ -7,8 +8,9 @@ namespace codecrafters_redis.Commands;
 public class CommandHandler
 {
     private readonly ConcurrentDictionary<string, IRedisValue> _store = new();
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<TaskCompletionSource<(string Key, string Value)>>> _waitingQueue = new();
 
-    public string Execute(string request)
+    public async Task<string> ExecuteAsync(string request)
     {
         RedisCommand command = RespParser.Parse(request);
     
@@ -55,18 +57,84 @@ public class CommandHandler
             case "RPUSH":
             {
                 var (key, values) = GetKeyAndValues(command);
-                RedisList lst = GetOrCreateList(key);
-                lst.Values.AddRange(values);
-                return RespWriter.Integer(
-                    lst.Values.Count);
+
+                if (_waitingQueue.TryGetValue(key, out var waiters))
+                {
+                    int i = 0;
+
+                    while (i < values.Length &&
+                           waiters.TryDequeue(out var waiter))
+                    {
+                        waiter.SetResult((key, values[i]));
+                        Console.WriteLine($"Waking waiter: {key} -> {values[i]}");
+                        i++;
+                    }
+
+                    values = values.Skip(i).ToArray();
+                }
+
+                if (values.Length == 0)
+                {
+                    return RespWriter.Integer(0);
+                }
+
+                RedisList list = GetOrCreateList(key);
+
+                list.Values.AddRange(values);
+
+                return RespWriter.Integer(list.Values.Count);
             }
 
             case "LPUSH":
             {
                 var (key, values) = GetKeyAndValues(command);
+
+                if (_waitingQueue.TryGetValue(key, out var waiters))
+                {
+                    int remaining = values.Length;
+                    Console.WriteLine($"Queue count before loop: {waiters.Count}");
+
+                    while (remaining > 0 &&
+                           waiters.TryDequeue(out var waiter))
+                    {
+                        remaining--;
+
+                        Console.WriteLine(
+                            $"Dequeued waiter. Remaining={remaining}. QueueCount={waiters.Count}");
+                        
+                        try
+                        {
+                            Console.WriteLine($"Before SetResult");
+
+                            waiter.SetResult(
+                                (key, values[remaining]));
+
+                            Console.WriteLine($"After SetResult");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex);
+                        }
+
+                        Console.WriteLine(
+                            $"SetResult completed for {values[remaining]}");
+                    }
+
+                    values = values.Take(remaining).ToArray();
+                }
+
+                if (values.Length == 0)
+                {
+                    return RespWriter.Integer(0);
+                }
+
                 RedisList list = GetOrCreateList(key);
-                foreach (var s in values)
-                    list.Values.Insert(0,s);
+
+                foreach (var value in values)
+                {
+                    list.Values.Insert(0, value);
+                }
+
                 return RespWriter.Integer(list.Values.Count);
             }
 
@@ -134,6 +202,49 @@ public class CommandHandler
                 return count == 1
                     ? RespWriter.BulkString(popped[0])
                     : RespWriter.Array(popped);
+            }
+
+            case "BLPOP":
+            {
+                var key = command.Arguments[0];
+                
+                Console.WriteLine(
+                    $"BLPOP received for key={command.Arguments[0]}");
+                
+                // immediate pop if list already has values
+                if (_store.TryGetValue(key, out var redisValue))
+                {
+                    if (redisValue is not RedisList list)
+                    {
+                        throw new InvalidOperationException("WRONGTYPE");
+                    }
+
+                    if (list.Values.Count > 0)
+                    {
+                        var val = list.Values[0];
+                        list.Values.RemoveAt(0);
+                        
+                        return RespWriter.Array([key, val]);
+                    }
+                }
+                
+                // no value available block
+                var tcs = new TaskCompletionSource<(string Key, string Value)>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
+                var queue = _waitingQueue.GetOrAdd(
+                    key,
+                    _ => new ConcurrentQueue<TaskCompletionSource<(string Key, string Value)>>());
+                
+                queue.Enqueue(tcs);
+
+                Console.WriteLine($"Waiting on key: {key}");
+                Console.WriteLine($"BLPOP waiter added. Queue count={queue.Count}");
+
+                var result = await tcs.Task;
+                
+                return RespWriter.Array([result.Key, result.Value]);
+
             }
                 
             default:

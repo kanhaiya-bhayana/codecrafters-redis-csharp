@@ -7,7 +7,7 @@ namespace codecrafters_redis.Networking;
 
 public static class ClientHandler
 {
-    public static void Handle(
+    public static async Task Handle(
         Socket client,
         CommandHandler commandHandler)
     {
@@ -25,7 +25,7 @@ public static class ClientHandler
                 // Console.WriteLine($" Curr Thread: {Task.CurrentId}");
                 string request = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 
-                string response = commandHandler.Execute(request);
+                string response = await commandHandler.ExecuteAsync(request);
                 
                 client.Send(Encoding.UTF8.GetBytes(response));
             }
