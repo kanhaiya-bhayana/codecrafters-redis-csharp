@@ -60,17 +60,18 @@ public class CommandHandler
 
                 if (_waitingQueue.TryGetValue(key, out var waiters))
                 {
-                    int i = 0;
+                    int index = 0;
 
-                    while (i < values.Length &&
+                    while (index < values.Length &&
                            waiters.TryDequeue(out var waiter))
                     {
-                        waiter.SetResult((key, values[i]));
-                        Console.WriteLine($"Waking waiter: {key} -> {values[i]}");
-                        i++;
+                        waiter.SetResult(
+                            (key, values[index]));
+
+                        index++;
                     }
 
-                    values = values.Skip(i).ToArray();
+                    values = values.Skip(index).ToArray();
                 }
 
                 if (values.Length == 0)
