@@ -278,6 +278,15 @@ public class CommandHandler
                     return RespWriter.Array([result.Key, result.Value]);
                 }
 
+                // A push may have completed at the exact same moment as the timeout.
+                // Prefer the successful result if the waiter was notified.
+                if (waitingClient.Tcs.Task.IsCompletedSuccessfully)
+                {
+                    var result = await waitingClient.Tcs.Task;
+                    RemoveWaiter(key, waitingClient);
+                    return RespWriter.Array([result.Key, result.Value]);
+                }
+
                 RemoveWaiter(key, waitingClient);
                 waitingClient.Tcs.TrySetCanceled();
                 return RespWriter.NullArray();
