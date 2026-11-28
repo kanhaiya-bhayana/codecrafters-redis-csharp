@@ -32,26 +32,17 @@ Note: This section is for stages 2 and beyond.
 1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
    output will be streamed to your terminal.
 
+# Supported Redis Commands
 
-
-
-| Command | parts[2] | parts[4] | parts[6] | parts[8] | parts[10] |
-|----------|----------|----------|----------|----------|-----------|
-| PING | PING | - | - | - | - |
-| ECHO hey | ECHO | hey | - | - | - |
-| GET foo | GET | foo | - | - | - |
-| SET foo bar | SET | foo | bar | - | - |
-| SET foo bar PX 100 | SET | foo | bar | PX | 100 |
-| RPUSH mylist apple | RPUSH | mylist | apple | - | - |
-| RPUSH mylist a b c | RPUSH | mylist | a | b | c |
-
-
-
-
-| Index | Meaning |
-|---------|---------|
-| parts[2] | Command |
-| parts[4] | Argument 1 |
-| parts[6] | Argument 2 |
-| parts[8] | Argument 3 |
-| parts[10] | Argument 4 |
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| PING | `PING` | Replies with `PONG`. |
+| ECHO | `ECHO message` | Returns the provided message. |
+| SET | `SET key value [PX milliseconds]` | Stores a string value with an optional expiration. `PX milliseconds` and `EX seconds` are supported. |
+| GET | `GET key` | Returns a string value, or null if it is missing or expired. |
+| RPUSH | `RPUSH key value [value ...]` | Appends one or more values to a list and returns its length. |
+| LPUSH | `LPUSH key value [value ...]` | Prepends one or more values to a list and returns its length. |
+| LRANGE | `LRANGE key start stop` | Returns the list elements in the inclusive range. Negative indexes are supported. |
+| LLEN | `LLEN key` | Returns the number of elements in a list. |
+| LPOP | `LPOP key [count]` | Removes and returns one element, or up to `count` elements. |
+| BLPOP | `BLPOP key` | Returns the first available list element immediately, or waits until one is pushed to the key. |
