@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net.Sockets;
 using codecrafters_redis.DTOs;
 using codecrafters_redis.Utils;
 
@@ -231,53 +230,56 @@ public class CommandHandler
             case "BLPOP":
             {
                 var (key, values) = GetKeyAndValues(command);
-                double timeoutSeconds = values.Length > 0 ? double.Parse(values[0]) : 0;
-                
+                double timeoutSeconds = values.Length > 0
+                    ? double.Parse(values[0], System.Globalization.CultureInfo.InvariantCulture)
+                    : 0;
+
                 Console.WriteLine(
                     $"BLPOP received for key={command.Arguments[0]}");
-                
-                // immediate pop if list already has values
-                if (_store.TryGetValue(key, out var redisValue))
-                {
-                    if (redisValue is not RedisList list)
-                    {
-                        throw new InvalidOperationException("WRONGTYPE");
-                    }
 
-                    if (list.Values.Count > 0)
-                    {
-                        var val = list.PopLeft();
-                        if (val is not null)
-                            return RespWriter.Array([key, val]);
-                    }
-                }
-                
                 // no value available block
-                var tcs = new TaskCompletionSource<(string Key, string Value)>(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                
-                var timeOutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds));
+                var waitingClient = new WaitingClient(
+                    new TaskCompletionSource<(string Key, string Value)>(
+                        TaskCreationOptions.RunContinuationsAsynchronously));
 
                 var queue = _waitingQueue.GetOrAdd(
                     key,
                     _ => new ConcurrentQueue<WaitingClient>());
-                
-                queue.Enqueue(new WaitingClient(tcs));
+
+                queue.Enqueue(waitingClient);
 
                 Console.WriteLine($"Waiting on key: {key}");
                 Console.WriteLine($"BLPOP waiter added. Queue count={queue.Count}");
 
-                var completedTask = await Task.WhenAny(tcs.Task, timeOutTask);
-                
-                if (completedTask == tcs.Task)
+                // Close the race between the initial empty check and enqueueing.
+                if (_store.TryGetValue(key, out var redisValue) &&
+                    redisValue is RedisList list && list.Values.Count > 0)
                 {
-                    var result = await tcs.Task;
+                    var immediateValue = list.PopLeft();
+                    if (immediateValue is not null &&
+                        waitingClient.Tcs.TrySetResult((key, immediateValue)))
+                    {
+                        RemoveWaiter(key, waitingClient);
+                        var result = await waitingClient.Tcs.Task;
+                        return RespWriter.Array([result.Key, result.Value]);
+                    }
+                }
+
+                var timeOutTask = timeoutSeconds == 0
+                    ? Task.Delay(Timeout.InfiniteTimeSpan)
+                    : Task.Delay(TimeSpan.FromSeconds(timeoutSeconds));
+
+                var completedTask = await Task.WhenAny(waitingClient.Tcs.Task, timeOutTask);
+
+                if (completedTask == waitingClient.Tcs.Task)
+                {
+                    var result = await waitingClient.Tcs.Task;
+                    RemoveWaiter(key, waitingClient);
                     return RespWriter.Array([result.Key, result.Value]);
                 }
 
-                // timeout occurred, remove the waiter from the queue
-                // need to remove the specific waiter from the queue
-                tcs.SetCanceled();
+                RemoveWaiter(key, waitingClient);
+                waitingClient.Tcs.TrySetCanceled();
                 return RespWriter.NullArray();
             }
                 
@@ -307,5 +309,14 @@ public class CommandHandler
         GetKeyAndValues(RedisCommand command)
     {
         return (command.Arguments[0], command.Arguments.Skip(1).ToArray());
+    }
+
+    private void RemoveWaiter(string key, WaitingClient waiter)
+    {
+        if (_waitingQueue.TryGetValue(key, out var queue))
+        {
+            var newQueue = new ConcurrentQueue<WaitingClient>(queue.Where(w => w != waiter));
+            _waitingQueue[key] = newQueue;
+        }
     }
 }
