@@ -273,7 +273,7 @@ public class CommandHandler
             }
                 
             default:
-                return RespWriter.NullBulkString();
+                return RespWriter.Array([]);
         }
     }
 
