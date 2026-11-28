@@ -269,7 +269,7 @@ public class CommandHandler
 
                 // timeout occurred, remove the waiter from the queue
                 // need to remove the specific waiter from the queue
-                return RespWriter.Array([]);
+                return RespWriter.NullArray();
             }
                 
             default:

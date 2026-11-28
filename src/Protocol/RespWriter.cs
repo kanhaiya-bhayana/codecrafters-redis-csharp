@@ -18,6 +18,9 @@ public static class RespWriter
 
     public static string Integer(int? value) =>
         $":{value}\r\n";
+    
+    public static string NullArray() =>
+        "*-1\r\n";
 
     public static string Array(IEnumerable<string> values)
     {
