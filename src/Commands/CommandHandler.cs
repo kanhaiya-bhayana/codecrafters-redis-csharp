@@ -80,8 +80,12 @@ public class CommandHandler
                             Console.WriteLine($"Waiter task already completed. Skipping.");
                             continue;
                         }
-                        waiter.Tcs.SetResult(
-                            (key, values[index]));
+                        if (!waiter.Tcs.TrySetResult((key, values[index])))
+                        {
+                            continue;
+                        }
+                        // waiter.Tcs.SetResult(
+                        //     (key, values[index]));
 
                         index++;
                     }
@@ -124,8 +128,12 @@ public class CommandHandler
                                 continue;
                             }
                             remaining--;
-                            waiter.Tcs.SetResult(
-                                (key, values[remaining]));
+                            if (!waiter.Tcs.TrySetResult((key, values[remaining])))
+                            {
+                                continue;
+                            }
+                            // waiter.Tcs.SetResult(
+                            //     (key, values[remaining]));
 
                             Console.WriteLine($"After SetResult");
                         }
