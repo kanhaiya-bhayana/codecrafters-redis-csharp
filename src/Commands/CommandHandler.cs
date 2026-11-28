@@ -84,6 +84,7 @@ public class CommandHandler
                     values = values.Skip(index).ToArray();
                 }
 
+                // fill the remaining list
                 if (values.Length > 0)
                 {
                     RedisList list = GetOrCreateList(key);
@@ -203,10 +204,8 @@ public class CommandHandler
                     values.Length > 0 ? int.Parse(values[0]) : 1,
                     list.Values.Count);
 
-                var popped = list.Values.GetRange(0, count);
-
-                list.Values.RemoveRange(0, count);
-
+                var popped = list.PopLeft(count);
+                
                 return count == 1
                     ? RespWriter.BulkString(popped[0])
                     : RespWriter.Array(popped);
@@ -229,10 +228,9 @@ public class CommandHandler
 
                     if (list.Values.Count > 0)
                     {
-                        var val = list.Values[0];
-                        list.Values.RemoveAt(0);
-                        
-                        return RespWriter.Array([key, val]);
+                        var val = list.PopLeft();
+                        if (val is not null)
+                            return RespWriter.Array([key, val]);
                     }
                 }
                 
