@@ -111,7 +111,6 @@ public class CommandHandler
                     while (remaining > 0 &&
                            waiters.TryDequeue(out var waiter))
                     {
-                        remaining--;
 
                         Console.WriteLine(
                             $"Dequeued waiter. Remaining={remaining}. QueueCount={waiters.Count}");
@@ -124,6 +123,7 @@ public class CommandHandler
                                 Console.WriteLine($"Waiter task already completed. Skipping.");
                                 continue;
                             }
+                            remaining--;
                             waiter.Tcs.SetResult(
                                 (key, values[remaining]));
 
