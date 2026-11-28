@@ -8,7 +8,7 @@ namespace codecrafters_redis.Commands;
 public class CommandHandler
 {
     private readonly ConcurrentDictionary<string, IRedisValue> _store = new();
-    private readonly ConcurrentDictionary<string, ConcurrentQueue<TaskCompletionSource<(string Key, string Value)>>> _waitingQueue = new();
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<WaitingClient>> _waitingQueue = new();
 
     public async Task<string> ExecuteAsync(string request)
     {
@@ -75,7 +75,12 @@ public class CommandHandler
                     while (index < values.Length &&
                            waiters.TryDequeue(out var waiter))
                     {
-                        waiter.SetResult(
+                        if (waiter.Tcs.Task.IsCompleted)
+                        {
+                            Console.WriteLine($"Waiter task already completed. Skipping.");
+                            continue;
+                        }
+                        waiter.Tcs.SetResult(
                             (key, values[index]));
 
                         index++;
@@ -114,8 +119,12 @@ public class CommandHandler
                         try
                         {
                             Console.WriteLine($"Before SetResult");
-
-                            waiter.SetResult(
+                            if (waiter.Tcs.Task.IsCompleted)
+                            {
+                                Console.WriteLine($"Waiter task already completed. Skipping.");
+                                continue;
+                            }
+                            waiter.Tcs.SetResult(
                                 (key, values[remaining]));
 
                             Console.WriteLine($"After SetResult");
@@ -213,7 +222,8 @@ public class CommandHandler
 
             case "BLPOP":
             {
-                var key = command.Arguments[0];
+                var (key, values) = GetKeyAndValues(command);
+                double timeoutSeconds = values.Length > 0 ? double.Parse(values[0]) : 0;
                 
                 Console.WriteLine(
                     $"BLPOP received for key={command.Arguments[0]}");
@@ -237,20 +247,29 @@ public class CommandHandler
                 // no value available block
                 var tcs = new TaskCompletionSource<(string Key, string Value)>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
+                
+                var timeOutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds));
 
                 var queue = _waitingQueue.GetOrAdd(
                     key,
-                    _ => new ConcurrentQueue<TaskCompletionSource<(string Key, string Value)>>());
+                    _ => new ConcurrentQueue<WaitingClient>());
                 
-                queue.Enqueue(tcs);
+                queue.Enqueue(new WaitingClient(tcs));
 
                 Console.WriteLine($"Waiting on key: {key}");
                 Console.WriteLine($"BLPOP waiter added. Queue count={queue.Count}");
 
-                var result = await tcs.Task;
+                var completedTask = await Task.WhenAny(tcs.Task, timeOutTask);
                 
-                return RespWriter.Array([result.Key, result.Value]);
+                if (completedTask == tcs.Task)
+                {
+                    var result = await tcs.Task;
+                    return RespWriter.Array([result.Key, result.Value]);
+                }
 
+                // timeout occurred, remove the waiter from the queue
+                // need to remove the specific waiter from the queue
+                return RespWriter.NullBulkString();
             }
                 
             default:
